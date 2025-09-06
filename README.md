@@ -1,4 +1,9 @@
-# Systematic Review Auditor — Enhanced Multi‑Agent Platform
+# Systematic Revie├── .gitignore                 # Git ignore rules
+├── Makefile                  # Development workflow automation
+├── pyproject.toml            # Project configuration (uv compatible)
+├── .env.llm                  # LLM API configuration (not committed)
+├── README.md                 # Main project documentation
+├── requirements.txt          # Python dependencies (legacy support)ditor — Enhanced Multi‑Agent Platform
 
 This is a **comprehensive multi‑agent platform** that audits systematic review manuscripts with advanced validation and statistical analysis capabilities. It provides a robust FastAPI service with three enhanced agents:
 
@@ -41,15 +46,41 @@ proto_sr_agents/
 └── manuscripts/              # Test manuscript files (gitignored)
 ```
 
-### 1) Python env
+## Quickstart
+
+### 1) Python env with uv
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment and install dependencies
+uv venv .venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
 ```
 
-### 2) Run the API
+### Alternative: Using pyproject.toml (Recommended)
 ```bash
-uvicorn app.main:app --reload
+# Install with uv using pyproject.toml
+uv sync
+
+# Run the application
+uv run uvicorn app.main:app --reload
+```
+
+### Using Makefile (Convenient)
+```bash
+# Setup everything
+make setup
+
+# Run the application
+make run
+
+# Run tests
+make test
+
+# Format code
+make format
 ```
 
 ### 3) Try it
@@ -141,15 +172,14 @@ claude/
 
 ## Usage
 
-### Command Line
+### Command Line with uv
 ```bash
-# Setup and run
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+# Setup and run with uv
+uv sync
+uv run uvicorn app.main:app --reload
 
 # Test with sample data
-curl -X POST http://127.0.0.1:8000/review/start -H "Content-Type: application/json" -d @tests/sample_manuscript.json
+uv run curl -X POST http://127.0.0.1:8000/review/start -H "Content-Type: application/json" -d @tests/sample_manuscript.json
 ```
 
 ### File Upload

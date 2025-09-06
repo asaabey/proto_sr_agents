@@ -4,7 +4,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-### Setup
+### Setup with uv
+```bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment and install dependencies
+uv venv .venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
+```
+
+### Alternative: Using pyproject.toml (Recommended)
+```bash
+# Install with uv using pyproject.toml
+uv sync
+
+# Run the application
+uv run uvicorn app.main:app --reload
+```
+
+### Traditional pip setup (if uv not available)
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
