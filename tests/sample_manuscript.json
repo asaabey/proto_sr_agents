@@ -1,0 +1,107 @@
+{
+  "manuscript_id": "MS-2025-001",
+  "title": "Effect of ACE inhibitors on CKD progression",
+  "journal": "Kidney Medicine",
+  "submission_date": "2025-08-31",
+  "question": {
+    "framework": "PICO",
+    "population": "Adults with CKD stages 2-4",
+    "intervention": "ACE inhibitor therapy",
+    "comparator": "Placebo or usual care",
+    "outcomes": [
+      "eGFR decline \u226540%",
+      "ESRD",
+      "All-cause mortality"
+    ]
+  },
+  "protocol": {
+    "prospero_id": "CRD42020201234",
+    "date": "2024-01-15"
+  },
+  "search": [
+    {
+      "db": "MEDLINE",
+      "platform": "Ovid",
+      "dates": "inception\u20132025-06-01",
+      "strategy": "(ckd OR ckd progression) AND (ace inhibitor)",
+      "limits": [
+        "English"
+      ]
+    },
+    {
+      "db": "Embase",
+      "platform": "Elsevier",
+      "dates": "inception\u20132025-06-01",
+      "strategy": "same concept",
+      "limits": [
+        "English"
+      ]
+    }
+  ],
+  "flow": {
+    "identified": 1023,
+    "deduplicated": 812,
+    "screened": 812,
+    "fulltext": 64,
+    "included": 12,
+    "excluded": [
+      {
+        "reason": "Not RCT",
+        "n": 38
+      }
+    ]
+  },
+  "included_studies": [
+    {
+      "study_id": "Smith2019",
+      "design": "RCT",
+      "n_total": 238,
+      "outcomes": [
+        {
+          "name": "All-cause mortality",
+          "effect_metric": "logRR",
+          "effect": -0.223,
+          "var": 0.04
+        },
+        {
+          "name": "eGFR decline \u226540%",
+          "effect_metric": "logRR",
+          "effect": -0.105,
+          "var": 0.035
+        }
+      ]
+    },
+    {
+      "study_id": "Lee2021",
+      "design": "RCT",
+      "n_total": 180,
+      "outcomes": [
+        {
+          "name": "All-cause mortality",
+          "effect_metric": "logRR",
+          "effect": -0.118,
+          "var": 0.05
+        },
+        {
+          "name": "eGFR decline \u226540%",
+          "effect_metric": "logRR",
+          "effect": -0.041,
+          "var": 0.03
+        }
+      ]
+    },
+    {
+      "study_id": "Garcia2022",
+      "design": "RCT",
+      "n_total": 310,
+      "outcomes": [
+        {
+          "name": "All-cause mortality",
+          "effect_metric": "logRR",
+          "effect": -0.06,
+          "var": 0.032
+        }
+      ]
+    }
+  ]
+}
