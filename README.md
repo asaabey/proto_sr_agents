@@ -59,13 +59,17 @@ source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
 
-### Alternative: Using pyproject.toml (Recommended)
+### Using Docker (Recommended for Production)
 ```bash
-# Install with uv using pyproject.toml
-uv sync
+# Build and run with Docker Compose
+docker-compose up --build
 
-# Run the application
-uv run uvicorn app.main:app --reload
+# Or build and run manually
+docker build -t proto-sr-agents .
+docker run -p 8000:8000 proto-sr-agents
+
+# For development with hot reload
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
 ### Using Makefile (Convenient)
