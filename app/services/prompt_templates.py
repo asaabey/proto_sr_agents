@@ -8,18 +8,20 @@ risk of bias assessment, and other systematic review tasks.
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
+
 @dataclass
 class PromptTemplate:
     system_prompt: str
     user_template: str
-    
+
     def format(self, **kwargs) -> str:
         """Format the user template with provided arguments."""
         return self.user_template.format(**kwargs)
 
+
 class SystemReviewPrompts:
     """Collection of prompt templates for systematic review analysis."""
-    
+
     PICO_EXTRACTION = PromptTemplate(
         system_prompt="""You are an expert systematic review methodologist. Your task is to extract PICO elements from manuscript text with high precision. Focus on identifying:
 - Population: Specific demographics, conditions, settings
@@ -28,7 +30,6 @@ class SystemReviewPrompts:
 - Outcomes: Primary and secondary endpoints with timeframes
 
 Be conservative - only extract elements that are explicitly stated. Return structured JSON only.""",
-        
         user_template="""Extract PICO elements from this systematic review text:
 
 {manuscript_text}
@@ -41,9 +42,9 @@ Return a JSON object with this exact structure:
   "outcomes": ["outcome1", "outcome2"] or [],
   "confidence": "high|medium|low",
   "extraction_notes": "brief notes about extraction quality"
-}}"""
+}}""",
     )
-    
+
     PRISMA_ASSESSMENT = PromptTemplate(
         system_prompt="""You are a systematic review quality assessor specializing in PRISMA 2020 guidelines. Evaluate manuscripts for reporting completeness and methodological rigor. Focus on:
 - Search strategy comprehensiveness
@@ -52,11 +53,13 @@ Return a JSON object with this exact structure:
 - Results presentation clarity
 
 Provide specific, actionable feedback with evidence citations.""",
-        
-        user_template="""Assess this systematic review section for PRISMA 2020 compliance:
+        user_template="""Assess this systematic review for PRISMA 2020 compliance:
 
-Section Type: {section_type}
-Content: {section_content}
+Manuscript Context:
+{manuscript_context}
+
+Search Strategies: {search_count}
+Included Studies: {study_count}
 
 Evaluate for:
 1. Completeness of reporting
@@ -75,11 +78,11 @@ Return JSON with:
       "recommendation": "actionable improvement suggestion"
     }}
   ],
-  "strengths": ["list of well-reported elements"],
+  "recommendations": ["list of specific improvements"],
   "overall_assessment": "brief summary"
-}}"""
+}}""",
     )
-    
+
     ROB_ASSESSMENT = PromptTemplate(
         system_prompt="""You are a risk of bias expert using RoB 2 (for RCTs) and ROBINS-I (for non-randomized studies). Assess study quality across all domains with careful attention to:
 - Randomization process and allocation concealment
@@ -88,7 +91,6 @@ Return JSON with:
 - Selective reporting concerns
 
 Provide domain-specific judgments with clear justifications.""",
-        
         user_template="""Assess risk of bias for this study:
 
 Study Design: {study_design}
@@ -108,9 +110,9 @@ Return JSON assessment:
     }}
   }},
   "summary": "overall risk of bias summary"
-}}"""
+}}""",
     )
-    
+
     GRADE_EVALUATION = PromptTemplate(
         system_prompt="""You are a GRADE methodology expert evaluating certainty of evidence. Assess evidence quality across five domains:
 1. Risk of bias
@@ -120,7 +122,6 @@ Return JSON assessment:
 5. Publication bias
 
 Consider upgrade factors for observational studies. Provide transparent, evidence-based certainty ratings.""",
-        
         user_template="""Evaluate GRADE certainty for this outcome:
 
 Outcome: {outcome_name}
@@ -149,9 +150,9 @@ Assess GRADE domains and provide:
     }}
   ],
   "summary_statement": "GRADE summary for this outcome"
-}}"""
+}}""",
     )
-    
+
     SEARCH_STRATEGY_REVIEW = PromptTemplate(
         system_prompt="""You are a systematic review information specialist. Evaluate search strategies for comprehensiveness, appropriateness, and reproducibility. Consider:
 - Database selection and coverage
@@ -161,7 +162,6 @@ Assess GRADE domains and provide:
 - Grey literature inclusion
 
 Provide specific suggestions for improvement.""",
-        
         user_template="""Review this search strategy:
 
 Research Question: {research_question}
@@ -191,30 +191,20 @@ Return assessment:
   ],
   "missing_elements": ["list of important missing components"],
   "overall_assessment": "summary evaluation"
-}}"""
+}}""",
     )
-    
-    STATISTICAL_INTERPRETATION = PromptTemplate(
-        system_prompt="""You are a biostatistician specializing in systematic reviews and meta-analysis. Interpret statistical results in clinical context, assess heterogeneity, and provide clear explanations for clinicians. Consider:
+
+    META_ANALYSIS_INTERPRETATION = PromptTemplate(
+        system_prompt="""You are a biostatistician specializing in systematic reviews and meta-analysis. Interpret statistical results in clinical context, assess heterogeneity, and provide clear explanations. Consider:
 - Effect size clinical significance
 - Statistical vs clinical significance
 - Heterogeneity sources and implications
 - Confidence interval interpretation
 
 Translate statistical findings into actionable clinical insights.""",
-        
         user_template="""Interpret these meta-analysis results:
 
-Outcome: {outcome}
-Effect Measure: {effect_measure}
-Pooled Effect: {pooled_effect} ({ci_lower}, {ci_upper})
-I²: {i_squared}%
-τ²: {tau_squared}
-Q-test p-value: {q_pvalue}
-Number of Studies: {n_studies}
-Total Participants: {n_participants}
-
-Study Context: {clinical_context}
+{results_summary}
 
 Provide interpretation:
 {{
@@ -228,23 +218,25 @@ Provide interpretation:
   "clinical_interpretation": "plain language explanation for clinicians",
   "certainty_factors": "factors affecting confidence in results",
   "recommendations": "clinical and research implications"
-}}"""
+}}""",
     )
+
 
 # Convenience function to get specific prompts
 def get_prompt(prompt_name: str) -> PromptTemplate:
-    """Get a specific prompt template by name.""" 
+    """Get a specific prompt template by name."""
     prompts_map = {
         "pico_extraction": SystemReviewPrompts.PICO_EXTRACTION,
         "prisma_assessment": SystemReviewPrompts.PRISMA_ASSESSMENT,
         "rob_assessment": SystemReviewPrompts.ROB_ASSESSMENT,
         "grade_evaluation": SystemReviewPrompts.GRADE_EVALUATION,
         "search_review": SystemReviewPrompts.SEARCH_STRATEGY_REVIEW,
-        "statistical_interpretation": SystemReviewPrompts.STATISTICAL_INTERPRETATION
+        "statistical_interpretation": SystemReviewPrompts.META_ANALYSIS_INTERPRETATION,
+        "meta_analysis_interpretation": SystemReviewPrompts.META_ANALYSIS_INTERPRETATION,
     }
-    
+
     if prompt_name not in prompts_map:
         available = ", ".join(prompts_map.keys())
         raise ValueError(f"Unknown prompt: {prompt_name}. Available: {available}")
-    
+
     return prompts_map[prompt_name]

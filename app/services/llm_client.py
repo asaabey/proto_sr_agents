@@ -14,11 +14,8 @@ from pathlib import Path
 
 
 class LLMProvider(Enum):
-    OPENAI = "openai"
-    ANTHROPIC = "anthropic"
-    AZURE = "azure"
-    OLLAMA = "ollama"
     OPENROUTER = "openrouter"
+    OLLAMA = "ollama"
 
 
 @dataclass
@@ -62,20 +59,7 @@ class LLMClient:
 
     def _initialize_client(self):
         """Initialize the appropriate LLM client based on provider."""
-        if self.config.provider == LLMProvider.OPENAI:
-            try:
-                import openai
-
-                self._client = openai.AsyncOpenAI(
-                    api_key=self.config.api_key or os.getenv("OPENAI_API_KEY"),
-                    base_url=self.config.base_url,
-                )
-            except ImportError:
-                raise ImportError(
-                    "OpenAI client not available. Install with: pip install openai"
-                )
-
-        elif self.config.provider == LLMProvider.OPENROUTER:
+        if self.config.provider == LLMProvider.OPENROUTER:
             try:
                 import openai
 
@@ -86,18 +70,6 @@ class LLMClient:
             except ImportError:
                 raise ImportError(
                     "OpenAI client required for OpenRouter. Install with: pip install openai"
-                )
-
-        elif self.config.provider == LLMProvider.ANTHROPIC:
-            try:
-                import anthropic
-
-                self._client = anthropic.AsyncAnthropic(
-                    api_key=self.config.api_key or os.getenv("ANTHROPIC_API_KEY")
-                )
-            except ImportError:
-                raise ImportError(
-                    "Anthropic client not available. Install with: pip install anthropic"
                 )
 
         elif self.config.provider == LLMProvider.OLLAMA:
@@ -112,10 +84,8 @@ class LLMClient:
     ) -> str:
         """Generate completion from LLM with provider-specific handling."""
 
-        if self.config.provider in [LLMProvider.OPENAI, LLMProvider.OPENROUTER]:
+        if self.config.provider == LLMProvider.OPENROUTER:
             return await self._openai_completion(prompt, system_prompt, **kwargs)
-        elif self.config.provider == LLMProvider.ANTHROPIC:
-            return await self._anthropic_completion(prompt, system_prompt, **kwargs)
         elif self.config.provider == LLMProvider.OLLAMA:
             return await self._ollama_completion(prompt, system_prompt, **kwargs)
         else:
@@ -144,16 +114,10 @@ class LLMClient:
     async def _anthropic_completion(
         self, prompt: str, system_prompt: Optional[str], **kwargs
     ) -> str:
-        """Anthropic Claude API completion."""
-        response = await self._client.messages.create(
-            model=self.config.model,
-            max_tokens=self.config.max_tokens,
-            temperature=self.config.temperature,
-            system=system_prompt or "You are a systematic review analysis assistant.",
-            messages=[{"role": "user", "content": prompt}],
-            **kwargs,
+        """Anthropic Claude API completion - DEPRECATED: OpenRouter only."""
+        raise NotImplementedError(
+            "Anthropic direct access not supported. Use OpenRouter instead."
         )
-        return response.content[0].text
 
     async def _ollama_completion(
         self, prompt: str, system_prompt: Optional[str], **kwargs
@@ -228,21 +192,9 @@ def create_llm_client(
     """Create LLM client with default configurations for systematic review analysis."""
 
     configs = {
-        "openai": LLMConfig(
-            provider=LLMProvider.OPENAI,
-            model=model if "gpt" in model else "gpt-4o-mini",
-            max_tokens=2000,
-            temperature=0.1,
-        ),
         "openrouter": LLMConfig(
             provider=LLMProvider.OPENROUTER,
             model=model,
-            max_tokens=2000,
-            temperature=0.1,
-        ),
-        "anthropic": LLMConfig(
-            provider=LLMProvider.ANTHROPIC,
-            model="claude-3-haiku-20240307",
             max_tokens=2000,
             temperature=0.1,
         ),

@@ -1,6 +1,15 @@
+"""
+Enhanced PRISMA Checker with LLM integration.
+
+Combines rule-based PRISMA validation with LLM-powered analysis
+for improved compliance assessment and recommendations.
+"""
+
 from typing import List, Dict, Optional
 import logging
 from app.models.schemas import Manuscript, Issue, SearchDescriptor, FlowCounts, StudyRecord
+from app.services.llm_client import get_llm_client
+from app.services.prompt_templates import get_prompt
 
 logger = logging.getLogger("agents.prisma_checker")
 
@@ -173,45 +182,223 @@ def _check_search_comprehensiveness(search: List[SearchDescriptor]) -> List[Issu
     
     return issues
 
+
+class EnhancedPRISMAChecker:
+    """PRISMA checker with LLM enhancement capabilities."""
+
+    def __init__(self, use_llm: bool = True, fallback_to_rules: bool = True):
+        self.use_llm = use_llm
+        self.fallback_to_rules = fallback_to_rules
+        self.llm_client = get_llm_client() if use_llm else None
+
+    def run(self, manuscript: Manuscript) -> List[Issue]:
+        """Enhanced PRISMA validation with LLM integration."""
+        logger.info("📊🤖 [Enhanced-PRISMA-Checker] Starting enhanced PRISMA validation with LLM integration...")
+        logger.debug(f"🔧 [Enhanced-PRISMA-Checker] Configuration - LLM: {self.use_llm}, Fallback: {self.fallback_to_rules}")
+
+        issues = []
+
+        # Always run rule-based checks first
+        logger.info("📋 [Enhanced-PRISMA-Checker] Running rule-based PRISMA validation...")
+        rule_based_issues = self._run_rule_based_checks(manuscript)
+        issues.extend(rule_based_issues)
+        logger.info(f"📊 [Enhanced-PRISMA-Checker] Rule-based validation found {len(rule_based_issues)} issues")
+
+        # Add LLM-enhanced analysis if available
+        if self.use_llm and self.llm_client:
+            logger.info("🧠 [Enhanced-PRISMA-Checker] Starting LLM-enhanced PRISMA analysis...")
+            try:
+                llm_issues = self._llm_enhanced_analysis(manuscript)
+                issues.extend(llm_issues)
+                logger.info(f"📊 [Enhanced-PRISMA-Checker] LLM analysis found {len(llm_issues)} additional issues")
+            except Exception as e:
+                logger.error(f"💥 [Enhanced-PRISMA-Checker] LLM analysis failed: {e}")
+                issues.append(Issue(
+                    id="PRISMA-LLM-ERROR-001",
+                    severity="low",
+                    category="OTHER",
+                    item="LLM PRISMA analysis failed, using rule-based results only",
+                    evidence={"error": str(e)},
+                    recommendation="Consider manual PRISMA compliance review.",
+                    agent="Enhanced-PRISMA-Checker"
+                ))
+
+        logger.info(f"✅ [Enhanced-PRISMA-Checker] Enhanced PRISMA validation complete - identified {len(issues)} total issues")
+        return issues
+
+    def _run_rule_based_checks(self, manuscript: Manuscript) -> List[Issue]:
+        """Run all original rule-based PRISMA checks."""
+        issues = []
+
+        # Original checks
+        search_issues = _check_search(manuscript.search)
+        issues.extend(search_issues)
+
+        flow_issues = _check_flow(manuscript.flow)
+        issues.extend(flow_issues)
+
+        # Enhanced checks
+        protocol_issues = _check_protocol_registration(manuscript)
+        issues.extend(protocol_issues)
+
+        selection_issues = _check_study_selection(manuscript)
+        issues.extend(selection_issues)
+
+        comprehensiveness_issues = _check_search_comprehensiveness(manuscript.search)
+        issues.extend(comprehensiveness_issues)
+
+        return issues
+
+    def _llm_enhanced_analysis(self, manuscript: Manuscript) -> List[Issue]:
+        """Use LLM for advanced PRISMA compliance assessment."""
+        logger.info("🧠 [Enhanced-PRISMA-Checker] Starting LLM-enhanced PRISMA compliance assessment...")
+        issues = []
+
+        try:
+            # Prepare manuscript context for LLM
+            manuscript_context = self._prepare_manuscript_context(manuscript)
+            logger.debug(f"📄 [Enhanced-PRISMA-Checker] Prepared manuscript context: {len(manuscript_context)} characters")
+
+            # Get PRISMA assessment prompt
+            prisma_prompt = get_prompt("prisma_assessment")
+
+            formatted_prompt = prisma_prompt.format(
+                manuscript_context=manuscript_context,
+                search_count=len(manuscript.search),
+                study_count=len(manuscript.included_studies)
+            )
+
+            logger.info("🔄 [Enhanced-PRISMA-Checker] Requesting LLM PRISMA assessment...")
+            response = self.llm_client.generate_completion_sync(
+                prompt=formatted_prompt,
+                system_prompt=prisma_prompt.system_prompt
+            )
+
+            # Parse and process LLM response
+            logger.debug("🔍 [Enhanced-PRISMA-Checker] Parsing LLM PRISMA assessment...")
+            assessment_issues = self._process_llm_assessment(response)
+            issues.extend(assessment_issues)
+
+            logger.info(f"✅ [Enhanced-PRISMA-Checker] LLM assessment complete - identified {len(assessment_issues)} issues")
+
+        except Exception as e:
+            logger.error(f"💥 [Enhanced-PRISMA-Checker] LLM PRISMA assessment failed: {e}")
+
+        return issues
+
+    def _prepare_manuscript_context(self, manuscript: Manuscript) -> str:
+        """Prepare manuscript information for LLM analysis."""
+        context_parts = []
+
+        if manuscript.title:
+            context_parts.append(f"Title: {manuscript.title}")
+
+        if manuscript.question:
+            pico_text = f"""
+            Population: {manuscript.question.population or 'Not specified'}
+            Intervention: {manuscript.question.intervention or 'Not specified'}
+            Comparator: {manuscript.question.comparator or 'Not specified'}
+            Outcomes: {', '.join(manuscript.question.outcomes) if manuscript.question.outcomes else 'Not specified'}
+            """
+            context_parts.append(f"Research Question (PICO): {pico_text}")
+
+        # Search information
+        if manuscript.search:
+            search_info = []
+            for search in manuscript.search:
+                search_desc = f"Database: {search.db}"
+                if search.strategy:
+                    search_desc += f", Strategy: {search.strategy[:100]}..."
+                if search.dates:
+                    search_desc += f", Dates: {search.dates}"
+                search_info.append(search_desc)
+            context_parts.append(f"Search Strategy: {'; '.join(search_info)}")
+
+        # Flow information
+        if manuscript.flow:
+            flow_text = f"""
+            Identified: {manuscript.flow.identified or 'Not reported'}
+            Deduplicated: {manuscript.flow.deduplicated or 'Not reported'}
+            Screened: {manuscript.flow.screened or 'Not reported'}
+            Full-text: {manuscript.flow.fulltext or 'Not reported'}
+            Included: {manuscript.flow.included or 'Not reported'}
+            """
+            context_parts.append(f"Study Flow: {flow_text}")
+
+        # Study information
+        if manuscript.included_studies:
+            study_info = []
+            for study in manuscript.included_studies:
+                study_desc = f"Study: {study.study_id}"
+                if study.design:
+                    study_desc += f", Design: {study.design}"
+                if study.n_total:
+                    study_desc += f", N: {study.n_total}"
+                study_info.append(study_desc)
+            context_parts.append(f"Included Studies: {'; '.join(study_info)}")
+
+        return "\n\n".join(context_parts)
+
+    def _process_llm_assessment(self, response: str) -> List[Issue]:
+        """Process LLM PRISMA assessment response."""
+        issues = []
+
+        try:
+            import json
+            assessment = json.loads(response)
+
+            # Process overall compliance score
+            compliance_score = assessment.get("compliance_score", 100)
+            if compliance_score < 80:
+                severity = "high" if compliance_score < 60 else "medium"
+                issues.append(Issue(
+                    id="PRISMA-COMPLIANCE-001",
+                    severity=severity,
+                    category="PRISMA",
+                    item=f"PRISMA compliance score: {compliance_score}/100",
+                    evidence=assessment,
+                    recommendation="; ".join(assessment.get("recommendations", [])),
+                    agent="Enhanced-PRISMA-Checker"
+                ))
+
+            # Process specific issues
+            specific_issues = assessment.get("issues", [])
+            for i, issue_data in enumerate(specific_issues):
+                severity = issue_data.get("severity", "medium")
+                issues.append(Issue(
+                    id=f"PRISMA-LLM-{i+1:03d}",
+                    severity=severity,
+                    category="PRISMA",
+                    item=issue_data.get("item", "PRISMA compliance issue"),
+                    evidence=issue_data,
+                    recommendation=issue_data.get("recommendation", "Review PRISMA guidelines"),
+                    agent="Enhanced-PRISMA-Checker"
+                ))
+
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.error(f"� [Enhanced-PRISMA-Checker] Failed to parse LLM assessment: {e}")
+            # Create a generic issue if parsing fails
+            issues.append(Issue(
+                id="PRISMA-LLM-PARSE-001",
+                severity="low",
+                category="OTHER",
+                item="LLM PRISMA assessment completed but results could not be parsed",
+                evidence={"raw_response": response[:500]},
+                recommendation="Manual PRISMA compliance review recommended.",
+                agent="Enhanced-PRISMA-Checker"
+            ))
+
+        return issues
+
+
+# Enhanced wrapper function
+def run_enhanced_prisma_analysis(manuscript: Manuscript, use_llm: bool = True) -> List[Issue]:
+    """Run enhanced PRISMA analysis with LLM integration."""
+    checker = EnhancedPRISMAChecker(use_llm=use_llm)
+    return checker.run(manuscript)
+
+
+# Original function for backward compatibility
 def run(manuscript: Manuscript) -> List[Issue]:
-    logger.info("📊 [PRISMA-Checker] Starting PRISMA 2020 compliance validation...")
-    issues: List[Issue] = []
-    
-    # Original checks
-    logger.debug("🔍 [PRISMA-Checker] Checking search strategy reporting...")
-    search_issues = _check_search(manuscript.search)
-    issues += search_issues
-    if search_issues:
-        logger.warning(f"⚠️ [PRISMA-Checker] Found {len(search_issues)} search strategy issues")
-    else:
-        logger.info("✓ [PRISMA-Checker] Search strategy validation passed")
-    
-    logger.debug("📈 [PRISMA-Checker] Checking PRISMA flow diagram...")
-    flow_issues = _check_flow(manuscript.flow)
-    issues += flow_issues
-    if flow_issues:
-        logger.warning(f"⚠️ [PRISMA-Checker] Found {len(flow_issues)} flow diagram issues")
-    else:
-        logger.info("✓ [PRISMA-Checker] Flow diagram validation passed")
-    
-    # Enhanced checks
-    logger.debug("📋 [PRISMA-Checker] Checking protocol registration...")
-    protocol_issues = _check_protocol_registration(manuscript)
-    issues += protocol_issues
-    if protocol_issues:
-        logger.warning(f"⚠️ [PRISMA-Checker] Found {len(protocol_issues)} protocol registration issues")
-    
-    logger.debug("🎯 [PRISMA-Checker] Checking study selection reporting...")
-    selection_issues = _check_study_selection(manuscript)
-    issues += selection_issues
-    if selection_issues:
-        logger.warning(f"⚠️ [PRISMA-Checker] Found {len(selection_issues)} study selection issues")
-    
-    logger.debug("🔍 [PRISMA-Checker] Checking search comprehensiveness...")
-    comprehensiveness_issues = _check_search_comprehensiveness(manuscript.search)
-    issues += comprehensiveness_issues
-    if comprehensiveness_issues:
-        logger.warning(f"⚠️ [PRISMA-Checker] Found {len(comprehensiveness_issues)} search comprehensiveness issues")
-    
-    logger.info(f"✅ [PRISMA-Checker] PRISMA validation complete - identified {len(issues)} issues")
-    return issues
+    """Original PRISMA checker function - now uses enhanced version with LLM if available."""
+    return run_enhanced_prisma_analysis(manuscript, use_llm=True)

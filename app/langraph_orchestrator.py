@@ -244,10 +244,46 @@ def prisma_checker_agent(state: MultiAgentState) -> Command:
     manuscript = state["manuscript"]
     issues = state.get("issues", [])
     analysis_methods = state.get("analysis_methods", [])
+    llm_config = state.get("llm_config", {})
 
-    new_issues = prisma_checker.run(manuscript)
-    issues.extend(new_issues)
-    analysis_methods.append(AnalysisMethod(agent="PRISMA-Checker", method="rule-based"))
+    # Try enhanced PRISMA checking first
+    try:
+        from app.agents.prisma_checker import EnhancedPRISMAChecker
+
+        checker = EnhancedPRISMAChecker(use_llm=llm_config.get("available", False))
+        new_issues = checker.run(manuscript)
+        issues.extend(new_issues)
+
+        analysis_methods.append(
+            AnalysisMethod(
+                agent="PRISMA-Checker",
+                method=(
+                    "llm-enhanced"
+                    if llm_config.get("available", False)
+                    else "rule-based"
+                ),
+                llm_model=(
+                    llm_config.get("model")
+                    if llm_config.get("available", False)
+                    else None
+                ),
+                llm_provider=(
+                    llm_config.get("provider")
+                    if llm_config.get("available", False)
+                    else None
+                ),
+            )
+        )
+
+    except Exception as e:
+        logger.warning(
+            f"⚠️ [PRISMA-Checker] Enhanced checking failed: {e}, using basic checker"
+        )
+        new_issues = prisma_checker.run(manuscript)
+        issues.extend(new_issues)
+        analysis_methods.append(
+            AnalysisMethod(agent="PRISMA-Checker", method="rule-based")
+        )
 
     # Update state
     state["issues"] = issues
@@ -311,10 +347,46 @@ def meta_analysis_agent(state: MultiAgentState) -> Command:
     manuscript = state["manuscript"]
     meta_results = state.get("meta_results", [])
     analysis_methods = state.get("analysis_methods", [])
+    llm_config = state.get("llm_config", {})
 
-    new_meta_results = meta_analysis.run(manuscript)
-    meta_results.extend(new_meta_results)
-    analysis_methods.append(AnalysisMethod(agent="Meta-Analysis", method="rule-based"))
+    # Try enhanced meta-analysis first
+    try:
+        from app.agents.meta_analysis import EnhancedMetaAnalysis
+
+        analyzer = EnhancedMetaAnalysis(use_llm=llm_config.get("available", False))
+        new_meta_results = analyzer.run(manuscript)
+        meta_results.extend(new_meta_results)
+
+        analysis_methods.append(
+            AnalysisMethod(
+                agent="Meta-Analysis",
+                method=(
+                    "llm-enhanced"
+                    if llm_config.get("available", False)
+                    else "rule-based"
+                ),
+                llm_model=(
+                    llm_config.get("model")
+                    if llm_config.get("available", False)
+                    else None
+                ),
+                llm_provider=(
+                    llm_config.get("provider")
+                    if llm_config.get("available", False)
+                    else None
+                ),
+            )
+        )
+
+    except Exception as e:
+        logger.warning(
+            f"⚠️ [Meta-Analysis] Enhanced analysis failed: {e}, using basic analyzer"
+        )
+        new_meta_results = meta_analysis.run(manuscript)
+        meta_results.extend(new_meta_results)
+        analysis_methods.append(
+            AnalysisMethod(agent="Meta-Analysis", method="rule-based")
+        )
 
     # Update state
     state["meta_results"] = meta_results

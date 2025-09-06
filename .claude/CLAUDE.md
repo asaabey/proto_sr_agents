@@ -46,41 +46,75 @@ open http://127.0.0.1:8000/docs
 
 ## Architecture
 
-This is a **prototype multi-agent systematic review auditing platform** built with FastAPI. The system uses a simple synchronous orchestrator that coordinates three specialized agents to audit systematic review manuscripts.
+This is a **multi-agent systematic review auditing platform** built with FastAPI and LangGraph. The system uses a sophisticated multi-agent orchestrator that coordinates four specialized agents to audit systematic review manuscripts with full LLM integration.
 
 ### Core Components
 
 - **FastAPI App** (`app/main.py`): Single endpoint `/review/start` that accepts a Manuscript and returns ReviewResult
-- **Orchestrator** (`app/orchestrator.py`): Sequential coordinator that runs agents in order: PICO → PRISMA → Meta-analysis
+- **LangGraph Orchestrator** (`app/langraph_orchestrator.py`): Multi-agent state machine with supervisor pattern coordinating: PICO → PRISMA → RoB → Meta-analysis
+- **LLM Integration** (`app/services/`): OpenRouter-based LLM client with specialized prompts for each agent
 - **Data Models** (`app/models/schemas.py`): Pydantic models for structured data including Manuscript, StudyRecord, Issue, and MetaResult
 
 ### Agent Architecture
 
-Located in `app/agents/`:
-- **PICO Parser** (`pico_parser.py`): Validates research question framing and normalizes outcomes
-- **PRISMA Checker** (`prisma_checker.py`): Checks basic reporting completeness against PRISMA guidelines
-- **Meta-Analysis** (`meta_analysis.py`): Recomputes fixed/random-effects meta-analysis from provided study effects
+Located in `app/agents/` - **All agents now use LLM-enhanced analysis**:
+- **Enhanced PICO Parser** (`pico_parser_enhanced.py`): LLM-powered research question validation and PICO extraction
+- **Enhanced PRISMA Checker** (`prisma_checker.py`): LLM-enhanced PRISMA compliance assessment with detailed recommendations
+- **Enhanced RoB Assessor** (`rob_assessor.py`): LLM-powered risk of bias evaluation using RoB 2/ROBINS-I frameworks
+- **Enhanced Meta-Analysis** (`meta_analysis.py`): Statistical analysis with LLM interpretation and clinical significance assessment
+
+### LLM Integration
+
+- **Provider**: OpenRouter (supports Claude, GPT-4, and other models)
+- **Configuration**: Environment-based setup in `.env.llm`
+- **Prompt Templates**: Specialized prompts for each agent type (`app/services/prompt_templates.py`)
+- **Fallback Logic**: Graceful degradation to rule-based analysis if LLM fails
 
 ### Data Flow
 
 1. Manuscript JSON → FastAPI endpoint
-2. Orchestrator runs agents sequentially, collecting Issues
-3. Meta-analysis agent produces MetaResults for outcomes
-4. Returns ReviewResult containing all issues and meta-analysis results
+2. LangGraph orchestrator initializes multi-agent state
+3. Supervisor agent routes to specialized agents sequentially
+4. Each agent runs LLM-enhanced analysis, collecting Issues and metadata
+5. Meta-analysis agent produces statistical results with LLM interpretation
+6. Returns ReviewResult with comprehensive analysis metadata
 
 ### Key Data Structures
 
 - **Manuscript**: Contains PICO question, search descriptors, flow counts, and included studies with effects
 - **Issue**: Structured feedback with severity, category (PICO/PRISMA/STATS/DATA/OTHER), evidence, and recommendations
 - **MetaResult**: Statistical results including pooled effects, confidence intervals, heterogeneity measures (Q, I², τ²)
+- **AnalysisMetadata**: Tracks LLM usage, agent methods, and analysis completeness
+
+### Current Capabilities
+
+✅ **LangGraph Multi-Agent Orchestration**
+✅ **Full LLM Integration Across All Agents**
+✅ **OpenRouter LLM Provider Support**
+✅ **Enhanced PICO Analysis with LLM Extraction**
+✅ **LLM-Powered PRISMA Compliance Assessment**
+✅ **Risk of Bias Assessment with LLM**
+✅ **Meta-Analysis with LLM Interpretation**
+✅ **Comprehensive Test Suite**
 
 ### Expected Input Format
 
 The system expects manuscripts with **pre-extracted study effects** as OutcomeEffect objects containing effect sizes, variances, and metric types (MD/SMD/OR/RR/HR with log variants).
 
-### Future Architecture Notes
+### Testing
 
-The current synchronous orchestrator is designed to be replaced with **LangGraph** for:
-- State machine workflow with retry/branching logic
-- Human-in-the-loop approval gates  
-- Additional agents for RoB assessment, GRADE evaluation, citation integrity checking
+```bash
+# Test the multi-agent system
+python test_langraph.py
+
+# Test individual agents
+python -m pytest tests/unit/ -v
+```
+
+### Future Enhancements
+
+- Human-in-the-loop approval gates
+- Additional specialized agents (GRADE evaluation, citation integrity)
+- Web-based UI for manuscript upload and review
+- Batch processing capabilities
+- Integration with systematic review databases
