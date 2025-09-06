@@ -195,6 +195,51 @@ curl -X POST http://127.0.0.1:8000/review/upload -F "file=@systematic_review.doc
 curl http://127.0.0.1:8000/upload/info
 ```
 
+### Streaming API for Live Updates
+
+The platform now supports **Server-Sent Events (SSE)** for real-time progress updates during analysis:
+
+#### Streaming Endpoints
+- `POST /review/start/stream` - Stream analysis from JSON manuscript data
+- `POST /review/upload/stream` - Stream analysis from uploaded DOCX file
+
+#### Event Types
+- `agent_start` - When an agent begins processing
+- `agent_complete` - When an agent finishes with results summary
+- `progress` - General progress updates
+- `complete` - Final analysis completion with summary
+- `error` - Error events during processing
+
+#### JavaScript Client Example
+```javascript
+// Connect to streaming analysis
+const client = new StreamingReviewClient();
+
+client.onEvent = (event) => {
+    switch (event.event_type) {
+        case 'agent_start':
+            console.log(`🚀 Starting ${event.agent}`);
+            break;
+        case 'agent_complete':
+            console.log(`✅ ${event.agent} found ${event.data.issues_found} issues`);
+            break;
+        case 'complete':
+            console.log(`🎉 Complete! Total issues: ${event.data.total_issues}`);
+            break;
+    }
+};
+
+// Start streaming analysis
+await client.streamFileAnalysis(fileInput.files[0]);
+```
+
+#### HTML Demo
+Open `streaming_demo.html` in your browser for a complete UI example that shows:
+- Live progress bar updates
+- Real-time log streaming
+- Agent-by-agent status updates
+- Final results display
+
 ### API Documentation
 - **Swagger UI**: http://127.0.0.1:8000/docs
 - **ReDoc**: http://127.0.0.1:8000/redoc

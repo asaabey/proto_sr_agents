@@ -4,9 +4,11 @@ from typing import List, Optional, Literal, Dict, Any
 
 class OutcomeEffect(BaseModel):
     name: str
-    effect_metric: Literal["MD","SMD","OR","RR","HR","logOR","logRR","logHR"] = "logRR"
+    effect_metric: Literal["MD", "SMD", "OR", "RR", "HR", "logOR", "logRR", "logHR"] = (
+        "logRR"
+    )
     effect: float  # log effect if log scale, otherwise raw
-    var: float     # variance of effect (SE^2)
+    var: float  # variance of effect (SE^2)
 
 
 class StudyRecord(BaseModel):
@@ -28,6 +30,7 @@ class ExclusionReason(BaseModel):
     reason: str
     n: int
 
+
 class FlowCounts(BaseModel):
     identified: Optional[int] = None
     deduplicated: Optional[int] = None
@@ -38,7 +41,7 @@ class FlowCounts(BaseModel):
 
 
 class PICO(BaseModel):
-    framework: Literal["PICO","PECO","PS","Other"] = "PICO"
+    framework: Literal["PICO", "PECO", "PS", "Other"] = "PICO"
     population: Optional[str] = None
     intervention: Optional[str] = None
     comparator: Optional[str] = None
@@ -59,8 +62,8 @@ class Manuscript(BaseModel):
 
 class Issue(BaseModel):
     id: str
-    severity: Literal["low","medium","high"]
-    category: Literal["PICO","PRISMA","STATS","DATA","OTHER"]
+    severity: Literal["low", "medium", "high"]
+    category: Literal["PICO", "PRISMA", "STATS", "DATA", "OTHER"]
     item: str
     evidence: Optional[Dict[str, Any]] = None
     recommendation: Optional[str] = None
@@ -70,7 +73,7 @@ class Issue(BaseModel):
 class MetaResult(BaseModel):
     outcome: str
     k: int
-    model: Literal["fixed","random"]
+    model: Literal["fixed", "random"]
     pooled: float
     se: float
     ci_low: float
@@ -83,19 +86,35 @@ class MetaResult(BaseModel):
 
 class AnalysisMethod(BaseModel):
     """Information about the analysis method used by an agent."""
+
     agent: str
     method: Literal["rule-based", "llm-enhanced", "hybrid"]
     llm_model: Optional[str] = None
     llm_provider: Optional[str] = None
     fallback_reason: Optional[str] = None
 
+
 class AnalysisMetadata(BaseModel):
     """Metadata about the analysis process and methods used."""
+
     analysis_methods: List[AnalysisMethod]
     llm_available: bool
     total_llm_calls: int = 0
     total_tokens_used: Optional[int] = None
     estimated_cost: Optional[float] = None
+
+
+class StreamingEvent(BaseModel):
+    """Event for streaming orchestrator progress to clients."""
+
+    event_type: Literal[
+        "agent_start", "agent_complete", "progress", "complete", "error"
+    ]
+    agent: Optional[str] = None
+    message: str
+    data: Optional[Dict[str, Any]] = None
+    timestamp: Optional[str] = None
+
 
 class ReviewResult(BaseModel):
     issues: List[Issue]

@@ -5,8 +5,9 @@ This module implements a truly multi-agentic system using Langraph where agents
 can communicate, hand off tasks, and make collaborative decisions.
 """
 
-from typing import List, Optional, Literal, TypedDict, Annotated
+from typing import List, Optional, Literal, TypedDict, Annotated, Generator
 import logging
+from datetime import datetime
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Command
 from langgraph.prebuilt import create_react_agent
@@ -19,6 +20,7 @@ from app.models.schemas import (
     Issue,
     MetaResult,
     AnalysisMethod,
+    StreamingEvent,
 )
 from app.agents import pico_parser, prisma_checker, meta_analysis
 from app.services.llm_config import get_llm_environment
@@ -510,6 +512,155 @@ def run_multi_agent_review(manuscript: Manuscript) -> ReviewResult:
         from app.orchestrator import simple_review
 
         return simple_review(manuscript)
+
+
+def run_multi_agent_review_streaming(
+    manuscript: Manuscript,
+) -> Generator[StreamingEvent, None, None]:
+    """
+    Run the multi-agent systematic review analysis with streaming progress updates.
+
+    Yields StreamingEvent objects as the analysis progresses through each agent.
+    """
+    logger.info("🚀 Starting streaming multi-agent systematic review analysis...")
+
+    # Initialize state
+    initial_state: MultiAgentState = {
+        "manuscript": manuscript,
+        "issues": [],
+        "meta_results": [],
+        "analysis_methods": [],
+        "current_agent": None,
+        "supervisor_decision": None,
+        "llm_config": None,
+        "completed_agents": [],
+    }
+
+    # Get the multi-agent graph
+    graph = get_multi_agent_graph()
+
+    # Yield initial progress event
+    yield StreamingEvent(
+        event_type="progress",
+        message="Initializing multi-agent analysis...",
+        timestamp=datetime.now().isoformat(),
+    )
+
+    try:
+        # We'll simulate the streaming by running each agent sequentially
+        # and yielding events after each completion
+        current_state = initial_state.copy()
+
+        # Agent execution order
+        agents = [
+            (
+                "pico_parser_agent",
+                "PICO Parser",
+                "Analyzing research question and PICO framework",
+            ),
+            (
+                "prisma_checker_agent",
+                "PRISMA Checker",
+                "Validating PRISMA flow diagram compliance",
+            ),
+            (
+                "rob_assessor_agent",
+                "Risk of Bias Assessor",
+                "Evaluating study quality and bias",
+            ),
+            ("meta_analysis_agent", "Meta-Analysis", "Performing statistical analysis"),
+        ]
+
+        for agent_node, agent_name, description in agents:
+            # Yield agent start event
+            yield StreamingEvent(
+                event_type="agent_start",
+                agent=agent_name,
+                message=f"Starting {description}...",
+                timestamp=datetime.now().isoformat(),
+            )
+
+            # Run the agent by invoking the graph with the current state
+            # Note: In a real streaming implementation, you'd modify the graph to yield events
+            # For now, we'll simulate by running each agent individually
+            try:
+                if agent_node == "pico_parser_agent":
+                    current_state, _ = pico_parser_agent(current_state)
+                elif agent_node == "prisma_checker_agent":
+                    current_state, _ = prisma_checker_agent(current_state)
+                elif agent_node == "rob_assessor_agent":
+                    current_state, _ = rob_assessor_agent(current_state)
+                elif agent_node == "meta_analysis_agent":
+                    current_state, _ = meta_analysis_agent(current_state)
+
+                # Count issues found by this agent
+                issues_count = len(current_state.get("issues", []))
+                meta_count = len(current_state.get("meta_results", []))
+
+                # Yield agent complete event
+                yield StreamingEvent(
+                    event_type="agent_complete",
+                    agent=agent_name,
+                    message=f"Completed {description}",
+                    data={
+                        "issues_found": issues_count,
+                        "meta_results": meta_count,
+                        "completed_agents": current_state.get("completed_agents", []),
+                    },
+                    timestamp=datetime.now().isoformat(),
+                )
+
+            except Exception as e:
+                logger.error(f"Error in {agent_name}: {e}")
+                yield StreamingEvent(
+                    event_type="error",
+                    agent=agent_name,
+                    message=f"Error in {agent_name}: {str(e)}",
+                    timestamp=datetime.now().isoformat(),
+                )
+
+        # Extract final results
+        issues = current_state.get("issues", [])
+        meta_results = current_state.get("meta_results", [])
+        analysis_methods = current_state.get("analysis_methods", [])
+
+        # Create analysis metadata
+        llm_config = current_state.get("llm_config") or {}
+        from app.models.schemas import AnalysisMetadata
+
+        metadata = AnalysisMetadata(
+            analysis_methods=analysis_methods,
+            llm_available=llm_config.get("available", False) if llm_config else False,
+            total_llm_calls=len(
+                [m for m in analysis_methods if m.method == "llm-enhanced"]
+            ),
+        )
+
+        # Yield completion event with final results
+        yield StreamingEvent(
+            event_type="complete",
+            message="Analysis complete",
+            data={
+                "total_issues": len(issues),
+                "total_meta_results": len(meta_results),
+                "severity_breakdown": {
+                    "high": len([i for i in issues if i.severity == "high"]),
+                    "medium": len([i for i in issues if i.severity == "medium"]),
+                    "low": len([i for i in issues if i.severity == "low"]),
+                },
+                "llm_calls": metadata.total_llm_calls,
+                "completed_agents": current_state.get("completed_agents", []),
+            },
+            timestamp=datetime.now().isoformat(),
+        )
+
+    except Exception as e:
+        logger.error(f"💥 Streaming multi-agent analysis failed: {e}")
+        yield StreamingEvent(
+            event_type="error",
+            message=f"Analysis failed: {str(e)}",
+            timestamp=datetime.now().isoformat(),
+        )
 
 
 # Enhanced review function (for compatibility)

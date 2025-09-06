@@ -118,3 +118,7 @@ python -m pytest tests/unit/ -v
 - Web-based UI for manuscript upload and review
 - Batch processing capabilities
 - Integration with systematic review databases
+
+### Notes for running terminal commands
+- always activate venv
+- never run uvicorn and curl in the same terminal as this will interrupt uvicorn

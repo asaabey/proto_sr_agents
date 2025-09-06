@@ -1,12 +1,14 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pathlib import Path
 import tempfile
 import shutil
-from app.models.schemas import Manuscript, ReviewResult
+import json
+from app.models.schemas import Manuscript, ReviewResult, StreamingEvent
 from app.langraph_orchestrator import (
     run_multi_agent_review,
     run_enhanced_multi_agent_review,
+    run_multi_agent_review_streaming,
 )
 from app.utils.pdf_ingest import extract_manuscript_from_file
 
@@ -22,6 +24,42 @@ def health():
 def start_review(manuscript: Manuscript):
     """Review a manuscript from structured JSON data."""
     return run_multi_agent_review(manuscript)
+
+
+@app.post("/review/start/stream")
+def start_review_streaming(manuscript: Manuscript):
+    """Review a manuscript with streaming progress updates via Server-Sent Events."""
+
+    def generate_events():
+        try:
+            for event in run_multi_agent_review_streaming(manuscript):
+                # Format as Server-Sent Event
+                data = {
+                    "event_type": event.event_type,
+                    "agent": event.agent,
+                    "message": event.message,
+                    "data": event.data,
+                    "timestamp": event.timestamp,
+                }
+                yield f"data: {json.dumps(data)}\n\n"
+        except Exception as e:
+            error_data = {
+                "event_type": "error",
+                "message": f"Streaming failed: {str(e)}",
+                "timestamp": "now",
+            }
+            yield f"data: {json.dumps(error_data)}\n\n"
+
+    return StreamingResponse(
+        generate_events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control",
+        },
+    )
 
 
 @app.post("/review/enhanced", response_model=ReviewResult)
@@ -82,6 +120,99 @@ async def upload_and_review(file: UploadFile = File(...)):
         }
 
         return result
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error processing uploaded file: {str(e)}"
+        )
+
+    finally:
+        # Clean up temporary file
+        if tmp_path.exists():
+            tmp_path.unlink()
+
+
+@app.post("/review/upload/stream")
+async def upload_and_review_streaming(file: UploadFile = File(...)):
+    """Upload and review a manuscript from DOCX file with streaming progress."""
+
+    # Validate file type
+    if not file.filename or not file.filename.lower().endswith((".docx", ".doc")):
+        raise HTTPException(
+            status_code=400,
+            detail="Only Word documents (.docx, .doc) are currently supported",
+        )
+
+    # Create temporary file
+    with tempfile.NamedTemporaryFile(
+        delete=False, suffix=Path(file.filename).suffix
+    ) as tmp_file:
+        # Copy uploaded content to temporary file
+        shutil.copyfileobj(file.file, tmp_file)
+        tmp_path = Path(tmp_file.name)
+
+    try:
+        # Extract manuscript from file
+        manuscript = extract_manuscript_from_file(tmp_path)
+
+        if manuscript is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Failed to extract manuscript data from uploaded file. "
+                "Please ensure the document contains systematic review content with "
+                "clear PICO elements, search strategies, and study data.",
+            )
+
+        # Add extraction info to streaming data
+        extraction_info = {
+            "source_file": file.filename,
+            "manuscript_id": manuscript.manuscript_id,
+            "extracted_elements": {
+                "title": manuscript.title is not None,
+                "pico": manuscript.question is not None,
+                "search_strategies": len(manuscript.search) if manuscript.search else 0,
+                "flow_counts": manuscript.flow is not None,
+                "studies": (
+                    len(manuscript.included_studies)
+                    if manuscript.included_studies
+                    else 0
+                ),
+            },
+        }
+
+        def generate_events():
+            try:
+                # Yield extraction event first
+                yield f"data: {json.dumps({'event_type': 'extraction_complete', 'message': 'Document extracted successfully', 'data': extraction_info})}\n\n"
+
+                # Then stream the analysis events
+                for event in run_multi_agent_review_streaming(manuscript):
+                    data = {
+                        "event_type": event.event_type,
+                        "agent": event.agent,
+                        "message": event.message,
+                        "data": event.data,
+                        "timestamp": event.timestamp,
+                    }
+                    yield f"data: {json.dumps(data)}\n\n"
+            except Exception as e:
+                error_data = {
+                    "event_type": "error",
+                    "message": f"Streaming failed: {str(e)}",
+                    "timestamp": "now",
+                }
+                yield f"data: {json.dumps(error_data)}\n\n"
+
+        return StreamingResponse(
+            generate_events(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Cache-Control",
+            },
+        )
 
     except Exception as e:
         raise HTTPException(
