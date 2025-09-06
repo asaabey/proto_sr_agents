@@ -20,7 +20,10 @@ dependencies = [
     "pytest-asyncio",
     "httpx",
     "python-docx",
-    "python-multipart"
+    "python-multipart",
+    "langgraph",
+    "langchain-openai",
+    "langchain-anthropic",
 ]
 
 [project.optional-dependencies]
