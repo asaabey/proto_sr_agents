@@ -125,10 +125,12 @@ def start_review_streaming(manuscript: Manuscript):
         generate_events(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
             "Connection": "keep-alive",
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Headers": "Cache-Control",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+            "CF-Cache-Status": "BYPASS",  # Tell Cloudflare not to cache
         },
     )
 
@@ -458,10 +460,12 @@ async def upload_and_review_streaming(file: UploadFile = File(...)):
             generate_events(),
             media_type="text/event-stream",
             headers={
-                "Cache-Control": "no-cache",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
                 "Connection": "keep-alive",
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Headers": "Cache-Control",
+                "X-Accel-Buffering": "no",  # Disable nginx buffering
+                "CF-Cache-Status": "BYPASS",  # Tell Cloudflare not to cache
             },
         )
 
