@@ -1,23 +1,5 @@
-# Use Python 3.13 slim image  
-FROM node:20-slim AS frontend-build
-WORKDIR /frontend
-COPY frontend/package*.json ./
-# Install minimal build tools (for any native deps) and clean cache later
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-# Ensure clean dependency install with better fallback
-RUN npm ci --no-audit --no-fund --prefer-offline || \
-    (echo 'Falling back to npm install due to npm ci failure' && \
-     rm -rf node_modules package-lock.json && \
-     npm install --no-audit --no-fund)
-# Copy all frontend files (excluding node_modules which is already installed)
-COPY frontend/ ./
-# Remove any copied node_modules to avoid conflicts
-RUN rm -rf ./node_modules_backup 2>/dev/null || true
-# Verify files copied correctly and build with Vite
-RUN ls -la src/ && ls -la src/lib/ && npx vite build
-
-# --- Backend stage ---
-FROM python:3.13-slim AS backend
+# Backend-only deployment
+FROM python:3.13-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
@@ -45,8 +27,6 @@ RUN uv sync --frozen --no-install-project --no-dev
 
 # Copy project files
 COPY . .
-# Copy built frontend assets into a static directory
-COPY --from=frontend-build /frontend/dist /app/app/static
 
 # Install the project itself
 RUN uv sync --frozen --no-dev
