@@ -237,3 +237,6 @@ frontend/public/*.ico
 # Local environment overrides
 frontend/.env*
 !frontend/.env.example
+
+# manuscript
+manuscripts/*.docx
