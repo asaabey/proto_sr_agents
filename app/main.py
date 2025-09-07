@@ -354,6 +354,7 @@ async def upload_and_review_streaming(file: UploadFile = File(...)):
                 log_queue, callback = register_listener()
                 try:
                     # Then stream the analysis events
+                    final_complete_payload = None
                     for event in run_multi_agent_review_streaming(manuscript):
                         # Drain log queue before each event
                         while not log_queue.empty():
@@ -368,6 +369,15 @@ async def upload_and_review_streaming(file: UploadFile = File(...)):
                             "timestamp": event.timestamp,
                             "sequence": seq,
                         }
+                        # Capture complete event so we can ensure manuscript presence
+                        if event.event_type == "complete" and event.data:
+                            # ensure manuscript embedded in result
+                            if (
+                                event.data.get("result")
+                                and "manuscript" not in event.data["result"]
+                            ):
+                                event.data["result"]["manuscript"] = manuscript.dict()
+                            final_complete_payload = data
                         yield f"data: {json.dumps(data)}\n\n"
                         seq += 1
                     # Final drain
@@ -377,7 +387,24 @@ async def upload_and_review_streaming(file: UploadFile = File(...)):
                         yield f"data: {json.dumps({'event_type':'log','sequence': seq,'message': log_line})}\n\n"
                 finally:
                     unregister_listener(callback)
-                # final manuscript payload event (not part of result schema but helpful for client)
+                # If somehow the streaming implementation didn't emit a complete event, synthesize one
+                if not final_complete_payload:
+                    synth_payload = {
+                        "event_type": "complete",
+                        "message": "Analysis complete",
+                        "sequence": seq,
+                        "data": {
+                            "result": {
+                                "issues": [],
+                                "meta": [],
+                                "analysis_metadata": None,
+                                "manuscript": manuscript.dict(),
+                            }
+                        },
+                    }
+                    yield f"data: {json.dumps(synth_payload)}\n\n"
+                    seq += 1
+                # final manuscript payload event (still emit for backward compatibility / debug)
                 yield f"data: {json.dumps({'event_type':'manuscript','sequence': seq, 'message':'Original manuscript attached','data': {'manuscript': manuscript.dict()}})}\n\n"
                 logger.info(
                     f"{request_id} | upload_and_review_streaming | streaming_complete total_events={seq+1}"

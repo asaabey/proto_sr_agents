@@ -650,6 +650,7 @@ def run_multi_agent_review_streaming(
             issues=issues,
             meta=meta_results,
             analysis_metadata=metadata,
+            manuscript=manuscript,  # include original manuscript so frontend has full context
         )
 
         yield StreamingEvent(

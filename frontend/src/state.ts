@@ -39,7 +39,14 @@ export const useAppState = create<AppState>((set) => ({
         if (ev.event_type === 'agent_start') reviewStatus = 'running';
         if (ev.event_type === 'complete') reviewStatus = 'completed';
         if (ev.event_type === 'error') reviewStatus = 'error';
-        const finalResult = ev.event_type === 'complete' && ev.data?.result ? ev.data.result as ReviewResult : s.finalResult;
+        let finalResult = s.finalResult;
+        if (ev.event_type === 'complete' && ev.data?.result) {
+            finalResult = ev.data.result as ReviewResult;
+        } else if (ev.event_type === 'manuscript' && ev.data?.manuscript) {
+            // enrich existing final result or create placeholder so UI can show manuscript early
+            finalResult = finalResult || { issues: [], meta: [], manuscript: ev.data.manuscript } as ReviewResult;
+            if (!finalResult.manuscript) finalResult.manuscript = ev.data.manuscript;
+        }
         return { streamEvents: [...s.streamEvents, ev], agentStates, reviewStatus, finalResult };
     }),
     setError: (e: string) => set({ error: e, reviewStatus: 'error' }),
