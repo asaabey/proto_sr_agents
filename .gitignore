@@ -201,3 +201,39 @@ artifacts/
 debug.log
 test_output/
 temp/
+
+# --------------------------------------------------
+# Frontend (React/Vite) specific
+# --------------------------------------------------
+frontend/node_modules/
+frontend/.vite/
+frontend/dist/
+frontend/build/
+frontend/.eslintcache
+frontend/.stylelintcache
+frontend/.tsbuildinfo
+frontend/coverage/
+frontend/.turbo/
+
+# Root level node artifacts (if any future tooling added)
+node_modules/
+*.tsbuildinfo
+
+# Package managers
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# IDE / tooling caches inside frontend
+frontend/.idea/
+frontend/.vscode/
+frontend/*.log
+
+# Generated assets
+frontend/public/*.svg
+frontend/public/*.png
+frontend/public/*.ico
+
+# Local environment overrides
+frontend/.env*
+!frontend/.env.example

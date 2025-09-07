@@ -121,3 +121,4 @@ class ReviewResult(BaseModel):
     meta: List[MetaResult]
     extraction_info: Optional[Dict[str, Any]] = None
     analysis_metadata: Optional[AnalysisMetadata] = None
+    manuscript: Optional[Manuscript] = None

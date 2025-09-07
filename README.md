@@ -97,6 +97,29 @@ Or open Swagger UI: http://127.0.0.1:8000/docs
 
 ---
 
+## Frontend (New Web UI MVP)
+
+An MVP React + Vite + TypeScript + Tailwind UI is scaffolded in `frontend/` for interactive manuscript upload and streaming review visualization.
+
+Dev (from `frontend/`):
+```
+pnpm install # or npm install / yarn
+pnpm dev
+```
+This starts the dev server at http://localhost:5173 with a proxy to the FastAPI backend at http://localhost:8000.
+
+Build static assets:
+```
+pnpm build
+```
+Outputs to `frontend/dist` (to be copied into backend container in upcoming Docker multi-stage build).
+
+Environment variable: `VITE_API_BASE` (defaults to `/`).
+
+Planned integration: serve built assets via FastAPI `StaticFiles` mount and unify Docker image.
+
+---
+
 ## What's inside
 
 ```

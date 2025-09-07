@@ -32,6 +32,11 @@ logging.basicConfig(
 logger = logging.getLogger("langraph_orchestrator")
 
 
+def _emit_stream_log(msg: str):
+    # No-op placeholder retained for backward compatibility with earlier patches
+    pass
+
+
 # Define the state schema for our multi-agent system
 class MultiAgentState(TypedDict):
     """State shared between all agents in the systematic review analysis."""
@@ -579,6 +584,7 @@ def run_multi_agent_review_streaming(
                 message=f"Starting {description}...",
                 timestamp=datetime.now().isoformat(),
             )
+            _emit_stream_log(f"Starting {agent_name}: {description}")
 
             # Run the agent by invoking the graph with the current state
             # Note: In a real streaming implementation, you'd modify the graph to yield events
@@ -637,6 +643,15 @@ def run_multi_agent_review_streaming(
         )
 
         # Yield completion event with final results
+        # Emit completion log lines
+
+        # Package full ReviewResult for client
+        review_result = ReviewResult(
+            issues=issues,
+            meta=meta_results,
+            analysis_metadata=metadata,
+        )
+
         yield StreamingEvent(
             event_type="complete",
             message="Analysis complete",
@@ -650,6 +665,7 @@ def run_multi_agent_review_streaming(
                 },
                 "llm_calls": metadata.total_llm_calls,
                 "completed_agents": current_state.get("completed_agents", []),
+                "result": review_result.dict(),
             },
             timestamp=datetime.now().isoformat(),
         )
