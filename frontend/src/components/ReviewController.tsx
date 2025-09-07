@@ -8,7 +8,7 @@ export const ReviewController: React.FC = () => {
     const onStart = async () => {
         if (!manuscript) return;
         startReview();
-    await startStream(manuscript, updateFromEvent, (e: unknown) => setError(String(e)));
+        await startStream(manuscript, updateFromEvent, (e: unknown) => setError(String(e)));
     };
     return (
         <div className="flex gap-2 items-center">

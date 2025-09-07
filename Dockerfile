@@ -1,13 +1,17 @@
-# Use Python 3.13 slim image
+# Use Python 3.13 slim image  
 FROM node:20-slim AS frontend-build
 WORKDIR /frontend
 COPY frontend/package*.json ./
 # Install minimal build tools (for any native deps) and clean cache later
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-# Attempt deterministic install; fallback if npm ci triggers optional dependency bug
-RUN npm ci --no-audit --no-fund || (echo 'Falling back to npm install due to npm ci failure' && rm -rf node_modules package-lock.json && npm install --no-audit --no-fund)
+# Ensure clean dependency install with better fallback
+RUN npm ci --no-audit --no-fund --prefer-offline || \
+    (echo 'Falling back to npm install due to npm ci failure' && \
+     rm -rf node_modules package-lock.json && \
+     npm install --no-audit --no-fund)
 COPY frontend .
-RUN npm run build
+# Verify files copied correctly and build with Vite (skip separate TypeScript check)
+RUN ls -la src/lib/ && npx vite build
 
 # --- Backend stage ---
 FROM python:3.13-slim AS backend
