@@ -21,6 +21,7 @@
         "zod": "^3.23.8"
     },
     "devDependencies": {
+        "rollup": "^3.29.4",
         "@tailwindcss/forms": "^0.5.7",
         "@vitejs/plugin-react": "^4.2.1",
         "@types/node": "^20.11.30",
