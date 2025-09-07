@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 import tempfile
 import shutil
@@ -8,6 +9,7 @@ import json
 import time
 import logging
 import uuid
+import os
 from app.models.schemas import Manuscript, ReviewResult, StreamingEvent
 from app.langraph_orchestrator import (
     run_multi_agent_review,
@@ -22,6 +24,23 @@ from app.logstream import (
 from app.utils.pdf_ingest import extract_manuscript_from_file
 
 app = FastAPI(title="Systematic Review Auditor — Enhanced Platform")
+
+# Add CORS middleware
+cors_origins = os.getenv("CORS_ORIGINS", "*")
+if cors_origins == "*":
+    allowed_origins = ["*"]
+else:
+    allowed_origins = [origin.strip() for origin in cors_origins.split(",")]
+
+cors_allow_credentials = os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=cors_allow_credentials,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Mount frontend static assets if present
 static_dir = Path(__file__).parent / "static"
