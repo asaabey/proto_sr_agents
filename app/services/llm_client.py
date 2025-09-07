@@ -33,8 +33,8 @@ class LLMClient:
     """Unified client for LLM API calls across all systematic review agents."""
 
     def __init__(self, config: LLMConfig):
-        # Load environment variables from .env.llm if it exists
-        env_file = Path(".env.llm")
+        # Load environment variables from .env if it exists
+        env_file = Path(".env")
         if env_file.exists():
             try:
                 from dotenv import load_dotenv

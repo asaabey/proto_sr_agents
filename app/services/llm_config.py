@@ -103,7 +103,7 @@ class LLMEnvironment:
     """Manages environment variables and API keys for LLM providers."""
 
     def __init__(self, config_file: Optional[Path] = None):
-        self.config_file = config_file or Path(".env.llm")
+        self.config_file = config_file or Path(".env")
         self.settings = LLMSettings()
         self._load_config()
 
@@ -255,7 +255,7 @@ LLM_LOG_CALLS=true
     env_file = Path(".env.llm.example")
     env_file.write_text(env_content)
     print(f"Created example environment file: {env_file}")
-    print("Copy to .env.llm and add your OpenRouter API key")
+    print("Copy to .env and add your OpenRouter API key")
     print("Get your OpenRouter API key at: https://openrouter.ai/keys")
 
 
