@@ -109,7 +109,7 @@ def supervisor_agent(state: MultiAgentState) -> Command:
     issues = state.get("issues", [])
 
     # Get LLM configuration
-    llm_config = state.get("llm_config")
+    llm_config = state.get("llm_config", {})
     if not llm_config:
         try:
             env = get_llm_environment()
@@ -134,7 +134,7 @@ def supervisor_agent(state: MultiAgentState) -> Command:
     logger.info(f"🎯 [Supervisor] Completed agents so far: {completed_agents}")
 
     # Get LLM configuration
-    llm_config = state.get("llm_config")
+    llm_config = state.get("llm_config", {})
     if not llm_config:
         try:
             env = get_llm_environment()

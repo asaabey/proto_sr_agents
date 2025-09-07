@@ -195,6 +195,7 @@ def create_llm_client(
         "openrouter": LLMConfig(
             provider=LLMProvider.OPENROUTER,
             model=model,
+            api_key=os.getenv("OPENROUTER_API_KEY"),
             max_tokens=2000,
             temperature=0.1,
         ),
