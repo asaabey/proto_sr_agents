@@ -4,6 +4,8 @@ services:
     build: .
     ports:
       - "${PORT:-8001}:${CONTAINER_PORT:-8000}"
+    volumes:
+      - ./.env:/app/.env
     environment:
       - PYTHONPATH=/app
       - PORT=${CONTAINER_PORT:-8000}
