@@ -220,7 +220,7 @@ node_modules/
 
 # Package managers
 pnpm-lock.yaml
-package-lock.json
+# package-lock.json
 yarn.lock
 
 # IDE / tooling caches inside frontend
