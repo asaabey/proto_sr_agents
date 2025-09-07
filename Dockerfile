@@ -9,9 +9,12 @@ RUN npm ci --no-audit --no-fund --prefer-offline || \
     (echo 'Falling back to npm install due to npm ci failure' && \
      rm -rf node_modules package-lock.json && \
      npm install --no-audit --no-fund)
-COPY frontend .
-# Verify files copied correctly and build with Vite (skip separate TypeScript check)
-RUN ls -la src/lib/ && npx vite build
+# Copy all frontend files (excluding node_modules which is already installed)
+COPY frontend/ ./
+# Remove any copied node_modules to avoid conflicts
+RUN rm -rf ./node_modules_backup 2>/dev/null || true
+# Verify files copied correctly and build with Vite
+RUN ls -la src/ && ls -la src/lib/ && npx vite build
 
 # --- Backend stage ---
 FROM python:3.13-slim AS backend
