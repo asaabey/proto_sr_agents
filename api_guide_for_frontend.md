@@ -9,7 +9,7 @@ This guide provides comprehensive documentation for integrating with the Systema
 API_BASE=http://127.0.0.1:8000/
 
 # Production  
-API_BASE=https://your-domain.com/
+API_BASE=https://proto-sr-agents-api.docpockets.com/
 ```
 
 ## Core API Endpoints
