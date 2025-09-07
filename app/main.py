@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import tempfile
 import shutil
@@ -21,6 +22,20 @@ from app.logstream import (
 from app.utils.pdf_ingest import extract_manuscript_from_file
 
 app = FastAPI(title="Systematic Review Auditor — Enhanced Platform")
+
+# Mount frontend static assets if present
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+
+@app.get("/")
+def frontend_index():
+    index_path = static_dir / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path)
+    return {"message": "Frontend not built. Run frontend build or use dev server."}
+
 
 # ---------------------------------------------------------------------------
 # Logging Setup

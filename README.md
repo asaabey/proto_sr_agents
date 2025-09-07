@@ -48,7 +48,7 @@ proto_sr_agents/
 
 ## Quickstart
 
-### 1) Python env with uv
+### 1) Local Python env with uv (backend only)
 ```bash
 # Install uv if not already installed
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -59,20 +59,49 @@ source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
 
-### Using Docker (Recommended for Production)
+### 2) Using Docker (Recommended)
+
+The repository now ships with a multi‑stage Docker build that compiles the React/Vite frontend and serves it via FastAPI as static assets.
+
+Production / integrated image:
 ```bash
-# Build and run with Docker Compose
-docker-compose up --build
-
-# Or build and run manually
-docker build -t proto-sr-agents .
-docker run -p 8000:8000 proto-sr-agents
-
-# For development with hot reload
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+docker compose up --build
+# App available: http://localhost:8000/ (serves frontend index) 
+# API docs:      http://localhost:8000/docs
 ```
 
-### Using Makefile (Convenient)
+Manual build (optional):
+```bash
+docker build -t proto-sr-agents .
+docker run -p 8000:8000 proto-sr-agents
+```
+
+Hot reload frontend + live backend (two containers):
+```bash
+docker compose up frontend-dev app
+# Frontend dev server: http://localhost:5173
+# Backend API:         http://localhost:8000
+```
+
+Rebuild after frontend code changes for production image:
+```bash
+docker compose build app
+```
+
+Key directories inside container:
+- `/app/app/static` – compiled frontend (`frontend/dist` copied during build)
+- Root route `/` serves `index.html` when present; assets under `/static/*`
+
+Environment variables of interest:
+- `VITE_API_BASE` (frontend) – defaults to `/`; set to full backend URL in dev container
+
+Endpoint summary (when using integrated image):
+- UI: `GET /`
+- Static assets: `GET /static/<asset>`
+- Health: `GET /health`
+- Streaming review: `POST /review/start/stream`, `POST /review/upload/stream`
+
+### 3) Using Makefile (Convenient)
 ```bash
 # Setup everything
 make setup
@@ -87,7 +116,7 @@ make test
 make format
 ```
 
-### 3) Try it
+### 4) Try it
 From a separate terminal:
 ```bash
 curl -s -X POST http://127.0.0.1:8000/review/start   -H "Content-Type: application/json"   -d @tests/sample_manuscript.json | jq
@@ -97,26 +126,39 @@ Or open Swagger UI: http://127.0.0.1:8000/docs
 
 ---
 
-## Frontend (New Web UI MVP)
+## Frontend (Web UI)
 
-An MVP React + Vite + TypeScript + Tailwind UI is scaffolded in `frontend/` for interactive manuscript upload and streaming review visualization.
+React + Vite + TypeScript + Tailwind UI in `frontend/` provides:
+- DOCX upload + parse flow
+- Live streaming (SSE) of multi‑agent progress, logs, completion
+- Issue & meta‑analysis panels + raw JSON debug view
 
-Dev (from `frontend/`):
+Development modes:
+1. Integrated (served by FastAPI): build via Docker multi‑stage (no live reload).
+2. Separate dev server: run `frontend-dev` compose service for HMR.
+
+Local dev without Docker:
+```bash
+cd frontend
+npm install   # or pnpm / yarn
+npm run dev   # http://localhost:5173
 ```
-pnpm install # or npm install / yarn
-pnpm dev
+Ensure backend running on :8000 (uvicorn or docker). Override API base if needed:
+```bash
+VITE_API_BASE=http://localhost:8000/ npm run dev
 ```
-This starts the dev server at http://localhost:5173 with a proxy to the FastAPI backend at http://localhost:8000.
 
-Build static assets:
+Build (outputs to `frontend/dist`):
+```bash
+npm run build
 ```
-pnpm build
-```
-Outputs to `frontend/dist` (to be copied into backend container in upcoming Docker multi-stage build).
 
-Environment variable: `VITE_API_BASE` (defaults to `/`).
+The Dockerfile copies `frontend/dist` to `app/app/static`. Root FastAPI route serves `index.html` when that directory exists.
 
-Planned integration: serve built assets via FastAPI `StaticFiles` mount and unify Docker image.
+SSE Event Types currently handled by UI store:
+`agent_start`, `agent_complete`, `progress`, `log`, `extraction_complete`, `manuscript`, `complete`, `error`.
+
+If extending backend events, also update `frontend/src/state.ts` and types.
 
 ---
 
@@ -226,12 +268,15 @@ The platform now supports **Server-Sent Events (SSE)** for real-time progress up
 - `POST /review/start/stream` - Stream analysis from JSON manuscript data
 - `POST /review/upload/stream` - Stream analysis from uploaded DOCX file
 
-#### Event Types
-- `agent_start` - When an agent begins processing
-- `agent_complete` - When an agent finishes with results summary
-- `progress` - General progress updates
-- `complete` - Final analysis completion with summary
-- `error` - Error events during processing
+#### Event Types (core)
+- `agent_start` – Agent begins
+- `agent_complete` – Agent finishes (includes running counts)
+- `progress` – Generic progress note
+- `log` – Backend log line (injected server-side)
+- `extraction_complete` – Upload pipeline extracted manuscript
+- `manuscript` – Final original manuscript echo (upload streaming path)
+- `complete` – Final result payload (contains `data.result`)
+- `error` – Error encountered
 
 #### JavaScript Client Example
 ```javascript
@@ -269,8 +314,21 @@ Open `streaming_demo.html` in your browser for a complete UI example that shows:
 
 ## Notes
 
-- **DOCX Support**: Full Word document ingestion with PICO extraction, search parsing, and table processing
-- **JSON Input**: Pre-structured data with effect sizes and variances for immediate analysis
-- **Optional Dependencies**: matplotlib/seaborn for plots, python-docx for file upload, spacy for enhanced NLP
-- All outputs include structured **Issue** objects with severity levels, categories, evidence, and actionable recommendations.
+- **DOCX Support**: Word ingestion with PICO extraction, search parsing, table processing
+- **JSON Input**: Pre‑structured data accepted for immediate streaming review
+- **Static Frontend**: Built assets served at `/` + `/static/*` inside container
+- **Optional Dependencies**: matplotlib/seaborn (plots), python-docx (ingestion), spacy (future NLP)
+- **Structured Issues**: Severity, category, evidence, recommendation
+- **Multi‑Stage Build**: Single image delivers API + UI; dev split available via compose
+
+---
+
+### Troubleshooting
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Frontend 404 on `/` | Static build missing | Run `docker compose build` or `npm run build` before image build |
+| SSE stops early | Network/proxy buffering | Ensure no reverse proxy buffering SSE (disable gzip, enable flush) |
+| No final result in UI | Missing `complete` event | Check backend logs; ensure `/review/*/stream` endpoint used |
+| CORS issues in dev | Wrong `VITE_API_BASE` | Set `VITE_API_BASE=http://localhost:8000/` |
+
 

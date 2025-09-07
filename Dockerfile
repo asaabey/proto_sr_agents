@@ -1,5 +1,13 @@
 # Use Python 3.13 slim image
-FROM python:3.13-slim
+FROM node:20-slim AS frontend-build
+WORKDIR /frontend
+COPY frontend/package*.json ./
+RUN npm ci --no-audit --no-fund
+COPY frontend .
+RUN npm run build
+
+# --- Backend stage ---
+FROM python:3.13-slim AS backend
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
@@ -27,6 +35,8 @@ RUN uv sync --frozen --no-install-project --no-dev
 
 # Copy project files
 COPY . .
+# Copy built frontend assets into a static directory
+COPY --from=frontend-build /frontend/dist /app/app/static
 
 # Install the project itself
 RUN uv sync --frozen --no-dev
