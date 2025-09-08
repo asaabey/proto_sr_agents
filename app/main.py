@@ -42,6 +42,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def add_streaming_headers(request, call_next):
+    """Add headers to prevent connection pooling issues with streaming endpoints."""
+    response = await call_next(request)
+    
+    # For streaming endpoints, add additional headers
+    if "/stream" in request.url.path:
+        response.headers["Connection"] = "close"  # Prevent connection reuse
+        response.headers["Keep-Alive"] = "timeout=0"  # Disable keep-alive
+        response.headers["X-Connection-Type"] = "streaming"  # Debug header
+    
+    return response
+
 # Mount frontend static assets if present
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
@@ -86,10 +99,17 @@ def start_review_streaming(manuscript: Manuscript):
 
     def generate_events():
         seq = 0
+        last_heartbeat = time.time()
         ensure_handler_installed()
         log_queue, callback = register_listener()
         try:
             for event in run_multi_agent_review_streaming(manuscript):
+                # Send heartbeat every 10 seconds to prevent connection timeout
+                current_time = time.time()
+                if current_time - last_heartbeat > 10:
+                    seq += 1
+                    yield f"data: {json.dumps({'event_type':'heartbeat','sequence': seq,'timestamp': current_time})}\n\n"
+                    last_heartbeat = current_time
                 # Drain pending logs first
                 while not log_queue.empty():
                     log_line = log_queue.get()
@@ -131,6 +151,9 @@ def start_review_streaming(manuscript: Manuscript):
             "Access-Control-Allow-Headers": "Cache-Control",
             "X-Accel-Buffering": "no",  # Disable nginx buffering
             "CF-Cache-Status": "BYPASS",  # Tell Cloudflare not to cache
+            "Alt-Svc": 'h2=":443"',  # Force HTTP/2 instead of HTTP/3
+            "CF-H2-Prioritization": "on",  # Enable HTTP/2 prioritization
+            "Transfer-Encoding": "chunked",  # Explicit chunked encoding
         },
     )
 
@@ -378,6 +401,7 @@ async def upload_and_review_streaming(file: UploadFile = File(...)):
 
         def generate_events():
             seq = 0
+            last_heartbeat = time.time()
             try:
                 logger.info(
                     f"{request_id} | upload_and_review_streaming | streaming_start"
@@ -392,6 +416,12 @@ async def upload_and_review_streaming(file: UploadFile = File(...)):
                     # Then stream the analysis events
                     final_complete_payload = None
                     for event in run_multi_agent_review_streaming(manuscript):
+                        # Send heartbeat every 10 seconds to prevent connection timeout
+                        current_time = time.time()
+                        if current_time - last_heartbeat > 10:
+                            seq += 1
+                            yield f"data: {json.dumps({'event_type':'heartbeat','sequence': seq,'timestamp': current_time})}\n\n"
+                            last_heartbeat = current_time
                         # Drain log queue before each event
                         while not log_queue.empty():
                             log_line = log_queue.get()
@@ -466,6 +496,9 @@ async def upload_and_review_streaming(file: UploadFile = File(...)):
                 "Access-Control-Allow-Headers": "Cache-Control",
                 "X-Accel-Buffering": "no",  # Disable nginx buffering
                 "CF-Cache-Status": "BYPASS",  # Tell Cloudflare not to cache
+                "Alt-Svc": 'h2=":443"',  # Force HTTP/2 instead of HTTP/3
+                "CF-H2-Prioritization": "on",  # Enable HTTP/2 prioritization
+                "Transfer-Encoding": "chunked",  # Explicit chunked encoding
             },
         )
 
